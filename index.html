@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1f6feb" />
+  <title>수원대 캠퍼스 바이크</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>🚲 수원대 캠퍼스 바이크</h1>
+    <span id="modeBadge" class="badge walk">도보 모드</span>
+  </header>
+
+  <main class="layout">
+    <section class="map-wrap">
+      <div id="map" aria-label="수원대학교 캠퍼스 지도"></div>
+      <div class="map-tools">
+        <button id="locBtn" class="chip">📍 내 위치 설정</button>
+      </div>
+      <div class="legend">
+        <span><i class="lg bike"></i>자전거 경로</span>
+        <span><i class="lg walk"></i>도보 경로</span>
+        <span><i class="lg foot"></i>보행로(도보 전용)</span>
+        <span><i class="lg steps"></i>계단</span>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="card">
+        <label class="field">
+          <span>목적지</span>
+          <select id="destSelect"><option value="">건물을 선택하거나 지도에서 탭하세요</option></select>
+        </label>
+        <div id="routeInfo" class="route-info muted">목적지를 선택하면 경로를 안내합니다.</div>
+        <div class="actions">
+          <button id="goBtn" class="btn primary" disabled>안내 시작</button>
+          <button id="clearBtn" class="btn">경로 지우기</button>
+        </div>
+      </div>
+
+      <div class="card" id="stationCard" hidden></div>
+
+      <div class="card">
+        <div class="tabs">
+          <button class="tab active" data-tab="bikes">자전거 현황</button>
+          <button class="tab" data-tab="log">이벤트 로그</button>
+        </div>
+        <div id="tab-bikes" class="tab-body">
+          <table class="bike-table">
+            <thead><tr><th>ID</th><th>상태</th><th>위치</th><th>배터리</th></tr></thead>
+            <tbody id="bikeRows"></tbody>
+          </table>
+        </div>
+        <div id="tab-log" class="tab-body" hidden>
+          <div class="muted small">GPS 수신 <b id="gpsCount">0</b>건</div>
+          <ol id="log" class="log"></ol>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
