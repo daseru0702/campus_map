@@ -55,19 +55,30 @@ class Heap {
   }
 }
 
-// 다익스트라. 반환: { path: [nodeId], edges: [edge], length(m), time(s) } 또는 null
+// 다익스트라. from/to 는 노드 하나 또는 여러 개(건물 출입 지점들) — 그중 가장 빠른 조합을 고른다.
+// 반환: { path: [nodeId], edges: [edge], length(m), time(s) } 또는 null
 export function shortestPath(from, to, mode) {
-  if (from === to) return { path: [from], edges: [], length: 0, time: 0 };
-  const best = { [from]: 0 };
+  const sources = [].concat(from);
+  const targets = new Set([].concat(to));
+  const same = sources.find((n) => targets.has(n));
+  if (same) return { path: [same], edges: [], length: 0, time: 0 };
+  const best = {};
   const prev = {};
   const done = new Set();
   const queue = new Heap();
-  queue.push([0, from]);
+  for (const s of sources) {
+    best[s] = 0;
+    queue.push([0, s]);
+  }
+  let reached = null;
   while (queue.size) {
     const [t, u] = queue.pop();
     if (done.has(u)) continue;
     done.add(u);
-    if (u === to) break;
+    if (targets.has(u)) {
+      reached = u;
+      break;
+    }
     for (const { to: v, edge } of adj[u] ?? []) {
       const nt = t + edgeTime(edge, mode);
       if (nt < (best[v] ?? Infinity)) {
@@ -77,14 +88,14 @@ export function shortestPath(from, to, mode) {
       }
     }
   }
-  if (!(to in prev)) return null;
-  const path = [to];
+  if (!reached) return null;
+  const path = [reached];
   const used = [];
-  for (let v = to; v !== from; v = prev[v].u) {
+  for (let v = reached; prev[v]; v = prev[v].u) {
     used.unshift(prev[v].edge);
     path.unshift(prev[v].u);
   }
-  return { path, edges: used, length: used.reduce((s, e) => s + e.length, 0), time: best[to] };
+  return { path, edges: used, length: used.reduce((s, e) => s + e.length, 0), time: best[reached] };
 }
 
 // 경로를 실제 길 모양(간선 geom)을 따라가는 좌표 목록으로 펼친다

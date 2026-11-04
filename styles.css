@@ -53,6 +53,7 @@ body {
   padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
 }
 .topbar h1 { font-size: 17px; margin: 0; }
+.top-right { display: flex; align-items: center; gap: 8px; }
 .badge { padding: 4px 10px; border-radius: 999px; font-weight: 600; font-size: 12px; color: #fff; }
 .badge.walk { background: var(--walk); }
 .badge.bike { background: var(--bike); }
@@ -60,7 +61,6 @@ body {
 .layout { flex: 1; display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
 .map-wrap { position: relative; min-height: 0; overflow: hidden; }
 #map { width: 100%; height: 100%; display: block; touch-action: manipulation; }
-.map-tools { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; }
 .legend {
   position: absolute; bottom: 10px; left: 12px; display: flex; gap: 12px; flex-wrap: wrap;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
@@ -97,6 +97,9 @@ select, .btn, .chip {
 .leg-dot.bike { background: var(--bike); }
 .leg-dot.walk { background: var(--walk); }
 .hint { margin-top: 8px; padding: 8px; border-radius: 8px; background: var(--bg); font-size: 13px; }
+.hint.warn { background: color-mix(in srgb, #f59f00 16%, var(--surface)); }
+.btn.small, .chip.small { padding: 4px 10px; font-size: 12px; }
+.btn.big { width: 100%; padding: 12px; font-size: 15px; }
 
 .station-title { display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
 .station-bikes { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 6px; }
@@ -117,15 +120,71 @@ select, .btn, .chip {
 .log li { padding: 3px 0; border-bottom: 1px solid var(--border); }
 .log time { color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
 
+/* 출발/도착 */
+.od { display: flex; gap: 8px; align-items: center; }
+.od-fields { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.od select { width: 100%; }
+.od .field { flex-direction: row; align-items: center; gap: 8px; }
+.od .field > span { width: 28px; flex: none; color: var(--muted); font-size: 12px; }
+.swap { font: inherit; font-size: 18px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; flex: none; }
+
+/* 대여 카드 / 남은 시간 */
+.rent-title { font-size: 15px; }
+.rent-time { margin: 6px 0; }
+.rent-left { font-size: 28px; font-variant-numeric: tabular-nums; }
+.rent-left.low, .rent-hud.low .rent-hud-time { color: #e67700; }
+.rent-left.over, .rent-hud.over .rent-hud-time { color: #e03131; }
+.bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin-bottom: 8px; }
+.bar i { display: block; height: 100%; background: var(--bike); transition: width .3s; }
+.rent-hud {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 600;
+  background: var(--surface); border-radius: 12px; padding: 8px 14px 4px; min-width: 210px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25); display: grid; grid-template-columns: auto 1fr; gap: 0 10px; align-items: center;
+}
+.rent-hud[hidden] { display: none; }
+.rent-hud-time { font-variant-numeric: tabular-nums; text-align: right; }
+.rent-hud .bar { grid-column: 1 / -1; margin: 6px 0 4px; }
+.rent-hud.low .bar i { background: #f59f00; }
+.rent-hud.over .bar i { background: #e03131; }
+
+/* 대여소 카드 / 목록 */
+.bike-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.bike-chip { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); }
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 2px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.list li:last-child { border-bottom: 0; }
+.avail { font-weight: 700; color: var(--ok); white-space: nowrap; }
+.avail.none { color: var(--muted); }
+.soon { color: var(--primary); font-weight: 700; }
+.list li.bus-stop { display: block; }
+.bus-stop-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.arr { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--bg); cursor: default; }
+.arr-row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.arr-row:last-of-type { border-bottom: 0; }
+.arr-times { text-align: right; white-space: nowrap; }
+.arr-foot { margin: 4px 0 8px; }
+.arr-idle { padding: 6px 0 0; }
+
 /* 지도 요소 (Leaflet) */
 #map { background: var(--map-ground); }
-.locating .leaflet-container, #map.locating { cursor: crosshair; }
-.map-tools, .legend { z-index: 500; }
+#map.locating, #map.locating .leaflet-interactive { cursor: crosshair; }
+.legend { z-index: 500; }
+.legend[hidden] { display: none; }
+.pick-hint {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 650;
+  background: var(--primary); color: #fff; padding: 8px 12px; border-radius: 999px; font-weight: 600; display: flex; gap: 8px; align-items: center;
+}
+.pick-hint[hidden] { display: none; }
+.map-ctl { display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.map-ctl button {
+  width: 44px; height: 44px; border: 0; border-bottom: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font-size: 20px; cursor: pointer;
+}
+.map-ctl button:last-child { border-bottom: 0; color: var(--primary); }
+.map-ctl button:active { background: var(--bg); }
+.map-ctl button.free { background: var(--primary); color: #fff; }
 .campus-boundary { stroke: var(--primary); stroke-width: 2; stroke-dasharray: 6 6; fill: var(--primary); fill-opacity: .04; }
-.net-footway { stroke: #8a6d3b; stroke-width: 2; stroke-dasharray: 4 5; fill: none; opacity: .7; }
-.net-steps { stroke: #d6336c; stroke-width: 3; stroke-dasharray: 2 4; fill: none; opacity: .85; }
 .bld { stroke: #fff; stroke-width: 2; fill: #495057; fill-opacity: .85; cursor: pointer; }
-.bld-tip { font-weight: 600; }
 .stn-wrap { background: none; border: 0; }
 .stn {
   width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
@@ -133,25 +192,59 @@ select, .btn, .chip {
   box-shadow: 0 1px 4px rgba(0,0,0,.35); cursor: pointer;
 }
 .stn.empty { border-color: #adb5bd; color: #868e96; }
-.r-bike-casing { stroke: #fff; stroke-width: 10; fill: none; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
+.stn.hl { outline: 3px solid var(--primary); outline-offset: 2px; }
+.busstop { width: 18px; height: 18px; border-radius: 5px; background: #2b8a3e; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); cursor: pointer; }
+.busstop.hl { outline: 3px solid var(--primary); outline-offset: 2px; }
+.r-casing { stroke: #fff; stroke-width: 10; fill: none; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
 .r-bike { stroke: var(--bike); stroke-width: 6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.r-walk { stroke: var(--walk); stroke-width: 5; fill: none; stroke-dasharray: 1 9; stroke-linecap: round; stroke-linejoin: round; }
+.r-walk { stroke: var(--walk); stroke-width: 6; fill: none; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+.r-footway { stroke: #8a6d3b; stroke-width: 3; stroke-dasharray: 4 5; fill: none; }
+.r-steps { stroke: #d6336c; stroke-width: 4; stroke-dasharray: 2 4; fill: none; }
 .dest-pin { stroke: #fff; stroke-width: 3; fill: var(--walk); fill-opacity: 1; }
-.bk { stroke: #fff; stroke-width: 2; fill-opacity: 1; }
-.bk.in_use { fill: var(--busy); }
 .me { fill: var(--walk); fill-opacity: 1; stroke: #fff; stroke-width: 3; }
-.me.riding { fill: var(--bike); }
+.me.riding { fill: #fff; stroke: var(--bike); stroke-width: 5; }
 .me-halo { fill: var(--walk); fill-opacity: .2; stroke: none; }
 .me-halo.riding { fill: var(--bike); }
+.me-acc { fill: var(--primary); fill-opacity: .08; stroke: var(--primary); stroke-opacity: .3; stroke-width: 1; }
+.leaflet-interactive.hidden { display: none; }
+
+/* 안내 중: 지도와 경로만 */
+.nav-hud {
+  position: absolute; left: 12px; right: 68px; bottom: 16px; z-index: 600;
+  background: var(--surface); border-radius: 14px; padding: 12px 14px; box-shadow: 0 2px 12px rgba(0,0,0,.3);
+}
+.nav-hud[hidden] { display: none; }
+.nav-leg { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+.nav-main { display: flex; gap: 10px; align-items: baseline; margin: 4px 0 8px; }
+.nav-remain { font-size: 26px; }
+.nav-actions { display: flex; gap: 8px; }
+.nav-actions .btn { flex: 1; }
+.nav-actions .btn[hidden] { display: none; }
+body.nav-mode .topbar, body.nav-mode .panel, body.nav-mode .legend { display: none; }
+body.nav-mode .layout { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+
+/* QR 스캔 모달 */
+.modal { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 16px; }
+.modal-box { background: var(--surface); color: var(--text); border-radius: 14px; padding: 14px; width: min(420px, 100%); }
+.modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.scan-view { position: relative; aspect-ratio: 1; background: #000; border-radius: 10px; overflow: hidden; }
+.scan-view video { width: 100%; height: 100%; object-fit: cover; }
+.scan-frame { position: absolute; inset: 18%; border: 3px solid #fff; border-radius: 12px; box-shadow: 0 0 0 999px rgba(0,0,0,.35); }
+.scan-msg { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; color: #fff; }
+.scan-manual { display: flex; gap: 8px; margin-top: 10px; }
+.scan-manual input { flex: 1; min-width: 0; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
 
 .toast {
-  z-index: 1000;
-  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
-  background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 600; z-index: 10;
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 3000;
+  background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 600;
+  max-width: calc(100% - 32px); text-align: center;
 }
+.toast[hidden] { display: none; }
+body.nav-mode .toast { bottom: auto; top: 76px; }
 
 @media (max-width: 760px) {
   .layout { grid-template-columns: 1fr; grid-template-rows: 52vh auto; }
   .panel { border-left: 0; border-top: 1px solid var(--border); padding: 12px 16px; }
   .legend { font-size: 11px; }
+  .topbar h1 { font-size: 15px; }
 }

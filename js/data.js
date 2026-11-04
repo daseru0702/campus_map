@@ -5,20 +5,23 @@ import campus from './campus.js';
 export const CAMPUS = campus;
 export const NODES = campus.nodes;
 export const EDGES = campus.edges;       // { a, b, bike, kind: road|footway|steps, geom: [[x,y],...] }
-export const BUILDINGS = campus.buildings; // { id, name, node, x, y }
+export const BUILDINGS = campus.buildings; // { id, name, node, exits: [nodeId], x, y } — exits: 건물 둘레의 출발/도착 후보 지점
 export const STATIONS = campus.stations;   // { id, name, node, capacity }
 
 const { lat, lon, kx, ky } = campus.origin;
 export const toLatLng = (x, y) => [lat - y / ky, lon + x / kx];
 export const fromLatLng = (la, lo) => ({ x: (lo - lon) * kx, y: (lat - la) * ky });
 
-// 더미 자전거 초기 배치
-export const INITIAL_BIKES = [
-  ['B-001', 'S1'], ['B-002', 'S1'], ['B-003', 'S1'], ['B-004', 'S2'],
-  ['B-005', 'S2'], ['B-006', 'S3'], ['B-007', 'S3'], ['B-008', 'S4'],
-  ['B-009', 'S5'], ['B-010', 'S5'], ['B-011', 'S5'], ['B-012', 'S6'],
-  ['B-013', 'S7'], ['B-014', 'S7'], ['B-015', 'S2'], ['B-016', 'S1'],
-].map(([id, station]) => ({ id, station, battery: 60 + Math.floor(Math.random() * 40) }));
+// 더미 자전거 초기 배치: 대여소마다 거치대의 절반 정도
+let seq = 0;
+export const INITIAL_BIKES = STATIONS.flatMap((st) =>
+  Array.from({ length: Math.ceil(st.capacity / 2) }, () => ({
+    id: `B-${String(++seq).padStart(3, '0')}`,
+    station: st.id,
+    battery: 60 + Math.floor(Math.random() * 40),
+  })));
+
+export const RENTAL_LIMIT_SEC = 30 * 60; // 1회 대여 시간 30분
 
 export const SPEED = { walk: 1.3, bike: 4.2 }; // m/s
 // 계단은 도보로도 평지보다 느리다 (자전거는 통행 불가)

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>자전거 QR 코드</title>
+  <style>
+    :root { --bg: #fff; --text: #1c2128; --muted: #6b7280; --border: #dee2e6; }
+    body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font-family: system-ui, "Malgun Gothic", sans-serif; }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    p { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .item { border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; break-inside: avoid; }
+    .item .qr { display: flex; justify-content: center; }
+    .item b { display: block; margin-top: 6px; }
+    .item span { font-size: 11px; color: var(--muted); }
+    @media print { p { display: none; } }
+  </style>
+</head>
+<body>
+  <h1>수원대 캠퍼스 바이크 · 자전거 QR</h1>
+  <p>테스트용입니다. 휴대폰 카메라나 앱의 "QR 스캔으로 대여"로 찍으면 해당 자전거가 대여됩니다. 인쇄해서 쓸 수도 있습니다.</p>
+  <div class="grid" id="grid"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script type="module">
+    import { INITIAL_BIKES, STATIONS } from './js/data.js';
+    const base = new URL('index.html', location.href);
+    const grid = document.getElementById('grid');
+    for (const b of INITIAL_BIKES) {
+      const url = new URL(base);
+      url.searchParams.set('bike', b.id);
+      const st = STATIONS.find((s) => s.id === b.station);
+      const item = document.createElement('div');
+      item.className = 'item';
+      item.innerHTML = `<div class="qr"></div><b>${b.id}</b><span>${st.name}</span>`;
+      grid.append(item);
+      new window.QRCode(item.querySelector('.qr'), { text: url.href, width: 120, height: 120 });
+    }
+  </script>
+</body>
+</html>

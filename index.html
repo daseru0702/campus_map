@@ -11,52 +11,81 @@
 </head>
 <body>
   <header class="topbar">
-    <h1>🚲 수원대 캠퍼스 바이크</h1>
-    <span id="modeBadge" class="badge walk">도보 모드</span>
+    <h1>수원대 캠퍼스 바이크</h1>
+    <div class="top-right">
+      <button id="locChip" class="chip small" title="위치 기준">데모 위치</button>
+      <span id="modeBadge" class="badge walk">도보 모드</span>
+    </div>
   </header>
 
   <main class="layout">
     <section class="map-wrap">
       <div id="map" aria-label="수원대학교 캠퍼스 지도"></div>
-      <div class="map-tools">
-        <button id="locBtn" class="chip">📍 내 위치 설정</button>
+
+      <!-- 대여 중 남은 시간 -->
+      <div id="rentHud" class="rent-hud" hidden>
+        <span class="rent-hud-bike"></span>
+        <b class="rent-hud-time"></b>
+        <div class="bar"><i></i></div>
       </div>
-      <div class="legend">
-        <span><i class="lg bike"></i>자전거 경로</span>
-        <span><i class="lg walk"></i>도보 경로</span>
-        <span><i class="lg foot"></i>보행로(도보 전용)</span>
+
+      <div id="pickHint" class="pick-hint" hidden>지도에서 출발 지점을 탭하세요 <button class="chip small" id="pickCancel">취소</button></div>
+
+      <div id="legend" class="legend" hidden>
+        <span><i class="lg bike"></i>자전거</span>
+        <span><i class="lg walk"></i>도보</span>
+        <span><i class="lg foot"></i>보행로</span>
         <span><i class="lg steps"></i>계단</span>
+      </div>
+
+      <!-- 안내 중 화면 (지도 + 경로만) -->
+      <div id="navHud" class="nav-hud" hidden>
+        <div class="nav-leg"></div>
+        <div class="nav-main"><b class="nav-remain"></b><span class="nav-sub muted"></span></div>
+        <div class="nav-actions">
+          <button id="navReturn" class="btn ok" hidden>여기에 반납</button>
+          <button id="navStop" class="btn">안내 종료</button>
+        </div>
       </div>
     </section>
 
     <aside class="panel">
       <div class="card">
-        <label class="field">
-          <span>목적지</span>
-          <select id="destSelect"><option value="">건물을 선택하거나 지도에서 탭하세요</option></select>
-        </label>
-        <div id="routeInfo" class="route-info muted">목적지를 선택하면 경로를 안내합니다.</div>
+        <div class="od">
+          <div class="od-fields">
+            <label class="field"><span>출발</span><select id="startSelect"></select></label>
+            <label class="field"><span>도착</span><select id="destSelect"></select></label>
+          </div>
+          <button id="swapBtn" class="swap" aria-label="출발지와 도착지 바꾸기" title="출발/도착 바꾸기">⇅</button>
+        </div>
+        <div id="routeInfo" class="route-info muted">도착지를 선택하면 경로를 안내합니다.</div>
         <div class="actions">
           <button id="goBtn" class="btn primary" disabled>안내 시작</button>
-          <button id="clearBtn" class="btn">경로 지우기</button>
+          <button id="clearBtn" class="btn">지우기</button>
         </div>
       </div>
+
+      <div class="card" id="rentCard"></div>
 
       <div class="card" id="stationCard" hidden></div>
 
       <div class="card">
         <div class="tabs">
-          <button class="tab active" data-tab="bikes">자전거 현황</button>
-          <button class="tab" data-tab="log">이벤트 로그</button>
+          <button class="tab active" data-tab="stations">대여소</button>
+          <button class="tab" data-tab="bus">버스</button>
+          <button class="tab" data-tab="sim" hidden>시뮬레이션</button>
         </div>
-        <div id="tab-bikes" class="tab-body">
+        <div id="tab-stations" class="tab-body"><ul id="stationList" class="list"></ul></div>
+        <div id="tab-bus" class="tab-body" hidden>
+          <div id="busInfo" class="small muted"></div>
+          <ul id="busList" class="list"></ul>
+        </div>
+        <div id="tab-sim" class="tab-body" hidden>
+          <div class="muted small">개발용 · 더미 자전거 전체 현황 · GPS 수신 <b id="gpsCount">0</b>건</div>
           <table class="bike-table">
             <thead><tr><th>ID</th><th>상태</th><th>위치</th><th>배터리</th></tr></thead>
             <tbody id="bikeRows"></tbody>
           </table>
-        </div>
-        <div id="tab-log" class="tab-body" hidden>
-          <div class="muted small">GPS 수신 <b id="gpsCount">0</b>건</div>
           <ol id="log" class="log"></ol>
         </div>
       </div>
@@ -65,6 +94,7 @@
 
   <div id="toast" class="toast" hidden></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

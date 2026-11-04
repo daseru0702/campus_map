@@ -28,7 +28,24 @@ STATION_SPOTS = [
     ('S5', '고운기숙사 대여소', '고운기숙사 A동', 10),
     ('S6', '미래혁신관 대여소', '미래혁신관', 6),
     ('S7', '체육대학 대여소', '체육대학', 6),
+    ('S8', '인문사회융합대학 대여소', '인문사회융합대학', 6),
+    ('S9', '제1공학관 대여소', '제 1공학관', 6),
+    ('S10', '제4공학관 대여소', '제 4공학관', 6),
+    ('S11', '디자인앤아트대학 대여소', '디자인앤아트대학', 6),
+    ('S12', '음악테크놀로지대학 대여소', '음악테크놀로지대학', 6),
+    ('S13', '라이프케어사이언스대학 대여소', '라이프케어사이언스대학', 6),
+    ('S14', '경영공학대학 대여소', '경영공학대학', 6),
 ]
+
+
+# 건물 출입 지점 (출발/도착 후보)
+#  1) 출입구 선: 건물 벽에 닿아 끝나는 길(막다른 끝) 또는 건물 안을 지나는 길의 지점 — 전부 쓴다
+#  2) 출입구 선이 1개 이하인 건물은 외곽 EXIT_RADIUS_M 안의 길 지점으로 보충한다
+ENTRANCE_TOUCH_M = 8   # 막다른 끝이 건물 외곽에서 이 거리 안이면 출입구 선으로 본다
+ENTRANCE_MERGE_M = 6   # 출입구 지점끼리 이보다 가까우면 하나로 본다
+EXIT_RADIUS_M = 20
+EXIT_SPACING_M = 25    # 보충 후보끼리 이보다 가까우면 하나만 남긴다
+MAX_EXITS = 4          # 보충할 때의 최대 개수
 
 WALK_ONLY = {'footway', 'steps', 'path', 'pedestrian', 'corridor', 'elevator'}
 EXCLUDE = {'motorway', 'motorway_link', 'trunk', 'trunk_link', 'construction', 'proposed'}
@@ -47,11 +64,11 @@ def main():
 
     poly = [proj(p['lat'], p['lon']) for p in campus['geometry']]
 
-    def inside(pt):
+    def inside(pt, ring=poly):
         x, y = pt
         c = False
-        for i in range(len(poly)):
-            (x1, y1), (x2, y2) = poly[i - 1], poly[i]
+        for i in range(len(ring)):
+            (x1, y1), (x2, y2) = ring[i - 1], ring[i]
             if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
                 c = not c
         return c
@@ -124,19 +141,54 @@ def main():
         c = (sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts))
         if not inside(c):
             continue
-        buildings.append({'name': t['name'], 'x': c[0], 'y': c[1]})
+        buildings.append({'name': t['name'], 'x': c[0], 'y': c[1], '_ring': pts})
     buildings.append({'name': GATE['name'], 'x': proj(GATE['lat'], GATE['lon'])[0], 'y': proj(GATE['lat'], GATE['lon'])[1]})
+
+    def ring_dist(pt, ring):
+        if inside(pt, ring):
+            return 0
+        return min(seg_dist(pt, ring[i - 1], ring[i]) for i in range(len(ring)))
+
+    def far_from(n, chosen, gap):
+        return all(math.hypot(pos[n][0] - pos[m][0], pos[n][1] - pos[m][1]) >= gap for m in chosen)
+
+    def exits_of(b):
+        ring = b.get('_ring')
+        if not ring:
+            return [b['node']]
+        cand = sorted((ring_dist(pos[n], ring), n) for n in adj)
+        entrances = []
+        for d, n in cand:
+            if d > ENTRANCE_TOUCH_M:
+                break
+            if (d == 0 or len(adj[n]) == 1) and far_from(n, entrances, ENTRANCE_MERGE_M):
+                entrances.append(n)
+        if len(entrances) >= 2:
+            return entrances
+        # 출입구 선이 부족하면 건물 둘레의 길 지점으로 보충 (가까운 순, 서로 떨어진 것만)
+        out = entrances + ([b['node']] if b['node'] not in entrances else [])
+        for d, n in cand:
+            if d > EXIT_RADIUS_M or len(out) >= MAX_EXITS:
+                break
+            if far_from(n, out, EXIT_SPACING_M):
+                out.append(n)
+        return out
+
     keep = set()
     for i, b in enumerate(buildings):
         b['id'] = f'd{i}'
         b['node'] = nearest((b['x'], b['y']), adj.keys())
-        keep.add(b['node'])
+        b['exits'] = exits_of(b)
+        b.pop('_ring', None)
+        keep.update(b['exits'])
 
     stations = []
     by_name = {b['name']: b for b in buildings}
     for sid, name, near, cap in STATION_SPOTS:
         b = by_name[near]
         n = nearest((b['x'], b['y']), bike_nodes)
+        if any(s['node'] == n for s in stations):
+            raise SystemExit(f'{name}: 다른 대여소와 같은 지점에 배치됨 — STATION_SPOTS 를 조정하세요')
         keep.add(n)
         stations.append({'id': sid, 'name': name, 'node': n, 'capacity': cap})
 
@@ -175,6 +227,7 @@ def main():
         e['a'], e['b'] = short[e['a']], short[e['b']]
     for b in buildings:
         b['node'] = short[b['node']]
+        b['exits'] = [short[n] for n in b['exits']]
         b['x'], b['y'] = round(b['x'], 1), round(b['y'], 1)
     for s in stations:
         s['node'] = short[s['node']]
