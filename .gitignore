@@ -4,3 +4,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 .env
+.dev.vars
+.wrangler/
+node_modules/

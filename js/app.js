@@ -231,7 +231,7 @@ function setNavMode(on) {
 function beginLeg(i) {
   const l = state.plan.legs[i];
   const points = routePoints(l);
-  state.nav = { legIndex: i, travelled: 0, points, length: totalLength(points), canReturn: false };
+  state.nav = { legIndex: i, travelled: 0, points, length: totalLength(points), canReturn: false, offFixes: 0 };
 }
 
 function startNav() {
@@ -296,24 +296,28 @@ function stepNavDemo(dt) {
 
 // GPS: 실제 위치를 경로에 맞춰 진행, 벗어나면 다시 탐색
 function project(points, p) {
-  let best = { d: Infinity, along: 0 };
+  let best = { d: Infinity, along: 0, x: p.x, y: p.y };
   let acc = 0;
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1], b = points[i];
     const seg = dist(a, b);
     const t = seg ? Math.max(0, Math.min(1, ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / (seg * seg))) : 0;
-    const d = Math.hypot(p.x - (a.x + t * (b.x - a.x)), p.y - (a.y + t * (b.y - a.y)));
-    if (d < best.d) best = { d, along: acc + t * seg };
+    const x = a.x + t * (b.x - a.x), y = a.y + t * (b.y - a.y);
+    const d = Math.hypot(p.x - x, p.y - y);
+    if (d < best.d) best = { d, along: acc + t * seg, x, y };
     acc += seg;
   }
   return best;
 }
+const OFF_ROUTE_M = 35;     // 경로에서 이만큼(또는 GPS 오차의 1.5배) 넘게 벗어나면 이탈 후보
+const OFF_ROUTE_FIXES = 3;  // 이탈 후보가 연속 이만큼 나와야 다시 탐색 (GPS 튐으로 재탐색하지 않도록)
 function trackGps() {
   const nav = state.nav;
   const l = state.plan.legs[nav.legIndex];
-  mv.follow(state.me);
-  const { d, along } = project(nav.points, state.me);
-  if (d > 40) {
+  const { d, along, x, y } = project(nav.points, state.me);
+  if (d > Math.max(OFF_ROUTE_M, (state.gpsAccuracy ?? 0) * 1.5)) {
+    mv.follow(state.me);
+    if (++nav.offFixes < OFF_ROUTE_FIXES) return;
     state.plan = state.rental ? planRide(meNode(), nodesOf(state.dest)) : planWalk(meNode(), nodesOf(state.dest));
     if (!state.plan?.legs.length) return stopNav(true);
     mv.drawRoute(state.plan, state.dest.node);
@@ -321,6 +325,14 @@ function trackGps() {
     toast('경로를 벗어나 다시 탐색했습니다.');
     return;
   }
+  nav.offFixes = 0;
+  // 경로 위에 있으면 내 위치를 경로선에 붙여 표시 (길 옆 건물 안으로 튀어 보이지 않게)
+  state.me.x = x;
+  state.me.y = y;
+  if (state.rental) moveMyBike(state.rental.bikeId, x, y);
+  mv.follow(state.me);
+  // 오차로 조금 뒤로 튄 값은 무시해 남은 거리가 늘었다 줄었다 하지 않게
+  if (along < nav.travelled && nav.travelled - along < 15) return;
   nav.travelled = along;
   const left = nav.length - along;
   if (l.mode === 'bike') nav.canReturn = left < 30;
@@ -353,39 +365,51 @@ function moveMeTo(nodeId) {
 
 function setLoc(mode) {
   state.loc = mode;
-  $('#locChip').textContent = mode === 'gps' ? 'GPS' : '데모 위치';
+  updateLocChip();
   $('#locChip').classList.toggle('active', mode === 'gps');
   renderRouteInfo();
 }
+function updateLocChip() {
+  const acc = state.gpsAccuracy;
+  $('#locChip').textContent = state.loc !== 'gps' ? '데모 위치' : acc ? `GPS ±${Math.round(acc)}m` : 'GPS';
+}
 
+const FIRST_FIX_ACCURACY = 40; // m, 첫 위치는 이 정도로 정확해질 때까지 기다림
+const FIRST_FIX_WAIT_MS = 10000; // 그래도 안 되면 이 시간 뒤 가장 나은 값으로 시작
 function startGps() {
   if (state.nav) return toast('안내 중에는 위치 기준을 바꿀 수 없습니다.');
   toast('현재 위치를 확인하는 중…');
   let first = true;
+  const startedAt = Date.now();
   state.stopGps?.();
   state.stopGps = watchGps((pos) => {
     const p = fromLatLng(pos.lat, pos.lng);
     const n = nearestNode(p.x, p.y);
     if (first) {
+      // 켜자마자 오는 값은 기지국·와이파이 기반이라 수백 m 틀리는 경우가 많다
+      if (pos.raw.accuracy > FIRST_FIX_ACCURACY && Date.now() - startedAt < FIRST_FIX_WAIT_MS) return;
       first = false;
-      if (dist(n, p) > 300) {
+      if (dist(n, p) - pos.accuracy > 300) {
         stopGps();
         return toast('캠퍼스 밖에 있어요. 데모 위치를 계속 사용합니다.');
       }
       setLoc('gps');
-      toast('GPS 위치를 사용합니다.');
+      toast(pos.accuracy > FIRST_FIX_ACCURACY
+        ? `GPS 신호가 약해요 (오차 약 ${Math.round(pos.accuracy)}m). 실외로 나가면 더 정확해집니다.`
+        : 'GPS 위치를 사용합니다.');
       mv.focus(p, 17.5);
     }
     const nodeChanged = n.id !== state.me.node;
     state.me = { node: n.id, x: p.x, y: p.y };
     state.gpsAccuracy = pos.accuracy;
+    updateLocChip();
     if (state.rental) moveMyBike(state.rental.bikeId, p.x, p.y);
     if (state.nav) trackGps();
     else if (nodeChanged) replan();
   }, (err) => {
     stopGps();
     toast(GPS_ERROR_TEXT[err]);
-  });
+  }, () => 1.5 * (state.rental ? SPEED.bike : SPEED.walk)); // 필터가 따라갈 이동 속도(여유를 둔 값)
 }
 function stopGps() {
   state.stopGps?.();
@@ -648,7 +672,8 @@ function arrivalsHtml(id) {
 
 function renderBus() {
   let info = '<b>캠퍼스 주변 버스 정류장</b> · 실시간 도착정보 (경기도 버스정보)';
-  if (bus.mock) info += '<div class="hint warn">버스 API 인증키가 없어 예시 데이터를 보여줍니다. 인증키를 .env 에 넣고 서버를 다시 켜면 실제 정보가 나옵니다.</div>';
+  if (bus.mock === 'offline') info += '<div class="hint warn">이 데모 버전에서는 예시 데이터를 보여줍니다. 실시간 도착정보는 버스 중계 서버와 함께 실행할 때 나옵니다.</div>';
+  else if (bus.mock) info += '<div class="hint warn">버스 API 인증키가 설정되지 않아 예시 데이터를 보여줍니다.</div>';
   if (bus.error) info += `<div class="hint warn">${bus.error}</div>`;
   setHTML($('#busInfo'), info);
   if (bus.loading) return setHTML($('#busList'), '<li class="muted">정류장을 불러오는 중…</li>');

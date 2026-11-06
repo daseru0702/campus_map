@@ -1,0 +1,19 @@
+# Cloudflare 에 공개 파일로 올리지 않을 것 (앱 화면에 필요 없는 파일)
+.git
+.github
+.claude
+.wrangler
+node_modules
+.env
+.env.*
+.dev.vars
+.assetsignore
+.gitignore
+.nojekyll
+wrangler.jsonc
+relay
+tools
+data
+server.py
+__pycache__
+*.md
