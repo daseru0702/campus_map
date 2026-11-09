@@ -1,11 +1,17 @@
+/* 대표 컬러: 수슝 블루 #275DE1, 수슝 옐로 #F4D410
+   테마: 기본은 기기 설정을 따르고, 오른쪽 위 버튼으로 고르면 html[data-theme] 로 고정한다 */
 :root {
+  color-scheme: light;
+  --brand-blue: #275DE1;
+  --brand-yellow: #F4D410;
   --bg: #f6f7f9;
   --surface: #ffffff;
   --text: #1c2128;
   --muted: #6b7280;
   --border: #e3e6ea;
-  --primary: #1f6feb;
-  --bike: #1f6feb;
+  --primary: var(--brand-blue);
+  --primary-text: var(--brand-blue); /* 배경 위 글자로 쓸 때 */
+  --bike: var(--brand-blue);
   --walk: #e8590c;
   --ok: #2f9e44;
   --busy: #9c36b5;
@@ -16,15 +22,16 @@
   --map-building: #dfe3e8;
   --map-building-stroke: #b6bdc6;
 }
+/* 어두운 테마 (아래 두 블록은 같은 값: 기기 설정이 어두울 때 / 직접 어둡게 골랐을 때) */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #0f1217;
     --surface: #181c23;
     --text: #e6e8eb;
     --muted: #9aa3ad;
     --border: #2a303a;
-    --primary: #4c8dff;
-    --bike: #4c8dff;
+    --primary-text: #7B9DF2; /* 수슝 블루는 어두운 바탕 위 글자로는 흐려서 밝은 톤 사용 */
     --walk: #ff8a3d;
     --ok: #51cf66;
     --busy: #cc5de8;
@@ -35,6 +42,24 @@
     --map-building: #2a3039;
     --map-building-stroke: #424a56;
   }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1217;
+  --surface: #181c23;
+  --text: #e6e8eb;
+  --muted: #9aa3ad;
+  --border: #2a303a;
+  --primary-text: #7B9DF2;
+  --walk: #ff8a3d;
+  --ok: #51cf66;
+  --busy: #cc5de8;
+  --map-ground: #1a2019;
+  --map-lawn: #23331f;
+  --map-road: #3b424d;
+  --map-path: #646c78;
+  --map-building: #2a3039;
+  --map-building-stroke: #424a56;
 }
 
 * { box-sizing: border-box; }
@@ -57,6 +82,23 @@ body {
 .badge { padding: 4px 10px; border-radius: 999px; font-weight: 600; font-size: 12px; color: #fff; }
 .badge.walk { background: var(--walk); }
 .badge.bike { background: var(--bike); }
+/* 밝게/어둡게 버튼: 지금 어두우면 해(밝게), 밝으면 달(어둡게)을 보여 준다 */
+.icon-btn {
+  width: 32px; height: 32px; padding: 0; display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); cursor: pointer;
+}
+.icon-btn:hover { border-color: var(--primary); }
+.icon-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn .i-sun circle { fill: var(--brand-yellow); stroke: var(--brand-yellow); }
+.icon-btn .i-sun path { stroke: var(--brand-yellow); }
+.icon-btn .i-moon path { fill: var(--brand-blue); stroke: var(--brand-blue); }
+.i-sun { display: none; }
+:root[data-theme="dark"] .i-sun { display: block; }
+:root[data-theme="dark"] .i-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .i-sun { display: block; }
+  :root:not([data-theme="light"]) .i-moon { display: none; }
+}
 
 .layout { flex: 1; display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
 .map-wrap { position: relative; min-height: 0; overflow: hidden; }
@@ -115,7 +157,7 @@ select, .btn, .chip {
 .st { font-weight: 600; }
 .st.docked { color: var(--ok); }
 .st.in_use { color: var(--busy); }
-.st.mine { color: var(--bike); }
+.st.mine { color: var(--primary-text); }
 .log { list-style: none; padding: 0; margin: 6px 0 0; max-height: 260px; overflow-y: auto; font-size: 12px; }
 .log li { padding: 3px 0; border-bottom: 1px solid var(--border); }
 .log time { color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
@@ -155,7 +197,7 @@ select, .btn, .chip {
 .list li:last-child { border-bottom: 0; }
 .avail { font-weight: 700; color: var(--ok); white-space: nowrap; }
 .avail.none { color: var(--muted); }
-.soon { color: var(--primary); font-weight: 700; }
+.soon { color: var(--primary-text); font-weight: 700; }
 .list li.bus-stop { display: block; }
 .bus-stop-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .arr { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--bg); cursor: default; }
@@ -180,7 +222,7 @@ select, .btn, .chip {
   width: 44px; height: 44px; border: 0; border-bottom: 1px solid var(--border);
   background: var(--surface); color: var(--text); font-size: 20px; cursor: pointer;
 }
-.map-ctl button:last-child { border-bottom: 0; color: var(--primary); }
+.map-ctl button:last-child { border-bottom: 0; color: var(--primary-text); }
 .map-ctl button:active { background: var(--bg); }
 .map-ctl button.free { background: var(--primary); color: #fff; }
 .campus-boundary { stroke: var(--primary); stroke-width: 2; stroke-dasharray: 6 6; fill: var(--primary); fill-opacity: .04; }

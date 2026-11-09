@@ -3,8 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#1f6feb" />
+  <meta name="theme-color" content="#275DE1" />
   <title>수원대 캠퍼스 바이크</title>
+  <script>
+    // 고른 테마(밝게/어둡게)를 화면이 그려지기 전에 적용 (깜빡임 방지). 고른 적 없으면 기기 설정을 따른다
+    try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+  </script>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <link rel="stylesheet" href="styles.css" />
@@ -15,6 +19,10 @@
     <div class="top-right">
       <button id="locChip" class="chip small" title="위치 기준">데모 위치</button>
       <span id="modeBadge" class="badge walk">도보 모드</span>
+      <button id="themeBtn" class="icon-btn" type="button">
+        <svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+      </button>
     </div>
   </header>
 

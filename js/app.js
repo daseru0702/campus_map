@@ -719,6 +719,23 @@ document.querySelectorAll('.tab').forEach((t) =>
   }));
 
 // ---------------- 공통 UI ----------------
+// 밝게/어둡게: 고르기 전에는 기기 설정을 따르고, 고르면 저장해 다음에도 유지
+const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+const currentTheme = () => document.documentElement.dataset.theme || (darkQuery.matches ? 'dark' : 'light');
+function updateThemeBtn() {
+  const label = currentTheme() === 'dark' ? '밝은 화면으로' : '어두운 화면으로';
+  $('#themeBtn').title = label;
+  $('#themeBtn').setAttribute('aria-label', label);
+}
+$('#themeBtn').addEventListener('click', () => {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('theme', next); } catch { /* 저장 못 해도 지금 화면에는 적용 */ }
+  updateThemeBtn();
+});
+darkQuery.addEventListener('change', updateThemeBtn);
+updateThemeBtn();
+
 function updateModeBadge() {
   const b = $('#modeBadge');
   b.className = `badge ${state.rental ? 'bike' : 'walk'}`;
