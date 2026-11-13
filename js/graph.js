@@ -7,6 +7,9 @@ const geomLength = (g) => g.reduce((s, p, i) => (i ? s + Math.hypot(p[0] - g[i -
 
 // 피해 갈 구역(대운동장 등)의 길은 경로를 고를 때만 이만큼 오래 걸리는 것으로 친다 (표시 시간은 실제 그대로)
 const AVOID_PENALTY = 5;
+// 오르막은 시간보다 더 힘들게 느껴진다: 경로를 고를 때만 1m 오를 때마다 이만큼(초) 더 걸리는 것으로 친다.
+// 시간이 비슷하면 덜 오르는 길을 고른다 (예: 정문 → ACE교육관은 체육대학 위 급경사 대신 대운동장 서쪽 도로)
+export const CLIMB_PENALTY = { walk: 3, bike: 3 };
 const MAX_GRADE = 0.3; // 높이 자료 오차로 튀는 경사를 이 안으로 제한 (계단 제외)
 
 // 간선을 높이 단면(z, 같은 간격)을 따라 한 방향으로 지날 때의 { walk, bike 소요시간(초), climb 오르는 높이(m) }
@@ -96,7 +99,8 @@ export function shortestPath(from, to, mode) {
       break;
     }
     for (const { to: v, edge, dir } of adj[u] ?? []) {
-      const nt = t + edge.cost[dir][mode] * (edge.avoid ? AVOID_PENALTY : 1);
+      const c = edge.cost[dir];
+      const nt = t + c[mode] * (edge.avoid ? AVOID_PENALTY : 1) + c.climb * CLIMB_PENALTY[mode];
       if (nt < (best[v] ?? Infinity)) {
         best[v] = nt;
         prev[v] = { u, edge, dir };
