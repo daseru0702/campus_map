@@ -49,12 +49,16 @@ EXIT_RADIUS_M = 20
 EXIT_SPACING_M = 25    # 보충 후보끼리 이보다 가까우면 하나만 남긴다
 MAX_EXITS = 4          # 보충할 때의 최대 개수
 
-# 되도록 지나가지 않을 구역 (위경도 다각형). 길이의 절반 이상이 안에 있는 간선에 avoid 를 붙인다
-#  - 대운동장: 체대 수업 전 몸풀기·축제 준비로 붐빈다. 북쪽 길(미래혁신관 방향)과 서쪽 도로는 제외
-AVOID_AREAS = {
+# 길로 쓰지 않을 구역 (위경도 다각형): 안에 든 보행로·계단은 그래프에서 뺀다 (차도는 남긴다)
+#  - 대운동장: 둘레 보행로는 길이 아니라 트랙에 가깝고, 체대 수업 전 몸풀기·축제 준비로 붐빈다.
+#    북쪽 길(미래혁신관 방향)과 서쪽 도로는 구역 밖
+EXCLUDE_AREAS = {
     '대운동장': [(37.211645, 126.977651), (37.211645, 126.978751), (37.211415, 126.978941), (37.210207, 126.978941),
                  (37.209935, 126.978372), (37.209935, 126.977765), (37.210509, 126.977537)],
 }
+
+# 되도록 지나가지 않을 구역 (위경도 다각형). 길이의 절반 이상이 안에 있는 간선에 avoid 를 붙인다
+AVOID_AREAS = {}
 AVOID_SHARE = 0.5
 
 # 간선 높이 단면: 길을 이 길이 안팎의 같은 구간으로 나눠 구간 끝마다 높이를 적는다
@@ -113,6 +117,8 @@ def main():
     def near_campus(pt):
         return inside(pt) or min(seg_dist(pt, poly[i - 1], poly[i]) for i in range(len(poly))) <= CAMPUS_BUFFER_M
 
+    excluded = [[proj(la, lo) for la, lo in ring] for ring in EXCLUDE_AREAS.values()]
+
     # ---- 원시 그래프 (OSM 노드 단위) ----
     pos = {}
     raw_edges = []  # (u, v, bike, kind)
@@ -131,6 +137,9 @@ def main():
         for nid, g in zip(ids, e['geometry']):
             pos[nid] = proj(g['lat'], g['lon'])
         for u, v in zip(ids, ids[1:]):
+            mid = ((pos[u][0] + pos[v][0]) / 2, (pos[u][1] + pos[v][1]) / 2)
+            if kind != 'road' and any(inside(mid, ring) for ring in excluded):
+                continue
             if near_campus(pos[u]) and near_campus(pos[v]):
                 raw_edges.append((u, v, bike, kind))
 
