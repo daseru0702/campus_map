@@ -73,6 +73,16 @@ GPS와 카메라는 브라우저 보안 정책상 **HTTPS 또는 localhost** 에
   - 안내 중에는 내 위치를 경로선에 붙여 표시하고, 경로 밖 위치가 3번 연속 나와야 다시 탐색한다
   - 상단 칩에 현재 오차(`GPS ±12m`)를 표시한다
 
+## 경사 반영
+
+길마다 높이 단면(15m 간격)을 두고, 오르막·내리막 방향에 따라 이동 시간을 따로 계산한다. 경로 탐색도 이 시간을 기준으로 하므로 같은 거리면 덜 가파른 길을 고른다. 경로 정보에 총 오르막 높이를 표시한다.
+
+- **높이**: 국토지리정보원 1:5,000 수치지도 2.0의 등고선(5m 간격)·표고점을 보간 (캠퍼스 해발 약 36~85m)
+- **걷기**: 토블러 보행 함수를 평지 1.3m/s에 맞춤 (오르막 8%에서 약 3.5km/h)
+- **자전거**: 페달 힘(100W) + 전기 보조(250W)로 낼 수 있는 속도, 최고 15km/h. 그보다 느려지면 끌고 걷는 속도로 본다. 일반 자전거면 `js/data.js`의 `BIKE.assistW`를 0으로
+- **계단**: 평지보다 느린 걸음과 칸 수(한 칸 16cm)로 센 시간 중 긴 쪽
+- 높이 자료 오차로 튀는 경사는 ±30%로 제한한다. 실제 걸어서 잰 시간과 비교해 `js/data.js`의 값을 조정할 수 있다
+
 ## 구조
 
 | 파일 | 역할 |
@@ -90,8 +100,9 @@ GPS와 카메라는 브라우저 보안 정책상 **HTTPS 또는 localhost** 에
 | `wrangler.jsonc`, `.assetsignore` | Cloudflare 배포 설정, 공개하지 않을 파일 목록 |
 | `js/data.js` | 캠퍼스 데이터 로드, 좌표 변환, 속도·대여 시간 설정, 초기 자전거 배치 |
 | `js/campus.js` | 자동 생성된 캠퍼스 그래프 (직접 수정하지 않음) |
-| `tools/build_campus.py` | OSM 원본 → `js/campus.js` 변환, 대여소(`STATION_SPOTS`) 위치 설정 |
-| `data/` | OSM 원본 데이터와 Overpass 쿼리 |
+| `tools/build_campus.py` | OSM 원본 → `js/campus.js` 변환, 대여소(`STATION_SPOTS`) 위치 설정, 높이 단면 추가 |
+| `tools/build_elevation.py` | 수치지도 등고선·표고점 → 높이 격자 `data/elevation.json` |
+| `data/` | OSM 원본 데이터와 Overpass 쿼리, 높이 격자. 수치지도 원본(`data/ngii/`)은 git에 올리지 않음 |
 | `qr.html` | 자전거별 QR 코드 모음 |
 
 ## 캠퍼스 데이터 갱신
@@ -99,14 +110,21 @@ GPS와 카메라는 브라우저 보안 정책상 **HTTPS 또는 localhost** 에
 1. `data/overpass_query.txt`를 https://overpass-turbo.eu 에서 실행해 결과를 `data/osm_raw.json`으로 저장
 2. `python tools/build_campus.py`
 
+높이를 다시 만들 때 (보통은 저장소의 `data/elevation.json`을 그대로 쓰면 된다):
+
+1. 국토정보플랫폼(map.ngii.go.kr)에서 1:5,000 수치지도 2.0 도엽 37616019, 37616020을 받아 zip 그대로 `data/ngii/`에 둔다
+2. `pip install pyshp pyproj scipy numpy` 후 `python tools/build_elevation.py`
+3. `python tools/build_campus.py`
+
 ## 남은 과제
 
 - 대여소 실제 위치 반영 (현재 임시)
 - 교내 셔틀 정보 (확보 시 추가)
-- 경사(고도) 반영 — OSM에는 높이 정보가 없음
+- 경사 모델 검증 — 실제로 걸어서(휴대폰 기압계 앱 등) 잰 시간·높이와 비교해 조정
 - PWA 전환 (서비스 워커, 아이콘)
 - 실제 자전거/서버 연동 (자전거 위치·잠금 장치)
 
 ## 라이선스 고지
 
 지도 및 길 데이터 © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, ODbL.
+높이 자료: 국토지리정보원 수치지도 2.0 (국토정보플랫폼).

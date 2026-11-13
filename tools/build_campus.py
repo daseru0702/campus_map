@@ -5,6 +5,7 @@
 
 - 좌표는 캠퍼스 중심 기준 미터(x: 동쪽 +, y: 남쪽 +)로 변환한다. 화면 표시 때 다시 위경도로 바꾼다.
 - 교차점/막다른 길/건물·대여소 연결점만 그래프 노드로 남기고, 그 사이 굽은 길은 간선의 geom 으로 보존한다.
+- data/elevation.json(tools/build_elevation.py)이 있으면 노드 높이(z)와 간선 높이 단면(z)을 넣는다.
 """
 import json
 import math
@@ -13,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / 'data' / 'osm_raw.json'
+ELEVATION = ROOT / 'data' / 'elevation.json'
 OUT = ROOT / 'js' / 'campus.js'
 
 CAMPUS_WAY_ID = 311203886  # amenity=university, 수원대학교
@@ -47,8 +49,30 @@ EXIT_RADIUS_M = 20
 EXIT_SPACING_M = 25    # 보충 후보끼리 이보다 가까우면 하나만 남긴다
 MAX_EXITS = 4          # 보충할 때의 최대 개수
 
+# 간선 높이 단면: 길을 이 길이 안팎의 같은 구간으로 나눠 구간 끝마다 높이를 적는다
+PROFILE_STEP_M = 15
+
 WALK_ONLY = {'footway', 'steps', 'path', 'pedestrian', 'corridor', 'elevator'}
 EXCLUDE = {'motorway', 'motorway_link', 'trunk', 'trunk_link', 'construction', 'proposed'}
+
+
+def load_elevation():
+    """(lat, lon) → 높이(m) 함수. 높이 격자가 없으면 None"""
+    if not ELEVATION.exists():
+        return None
+    g = json.loads(ELEVATION.read_text(encoding='utf-8'))
+    rows, cols, z = g['rows'], g['cols'], g['z']
+
+    def height(lat, lon):  # 격자 4칸 사이 이중선형 보간
+        r = min(max((g['north'] - lat) / g['dlat'], 0), rows - 1.001)
+        c = min(max((lon - g['west']) / g['dlon'], 0), cols - 1.001)
+        r0, c0 = int(r), int(c)
+        fr, fc = r - r0, c - c0
+        at = lambda i, j: z[i * cols + j]
+        top = at(r0, c0) * (1 - fc) + at(r0, c0 + 1) * fc
+        bottom = at(r0 + 1, c0) * (1 - fc) + at(r0 + 1, c0 + 1) * fc
+        return top * (1 - fr) + bottom * fr
+    return height
 
 
 def main():
@@ -232,11 +256,32 @@ def main():
     for s in stations:
         s['node'] = short[s['node']]
 
+    height = load_elevation()
+    zof = lambda p: round(height(lat0 - p[1] / ky, lon0 + p[0] / kx), 1)
+    if height:
+        for e in edges:
+            g = e['geom']
+            cum = [0]
+            for p, q in zip(g, g[1:]):
+                cum.append(cum[-1] + math.hypot(q[0] - p[0], q[1] - p[1]))
+            n = max(1, round(cum[-1] / PROFILE_STEP_M))
+            prof, i = [], 0
+            for k in range(n + 1):  # 길을 따라 같은 간격으로 높이를 잰다 (a 쪽 → b 쪽)
+                d = cum[-1] * k / n
+                while i < len(g) - 2 and cum[i + 1] < d:
+                    i += 1
+                seg = cum[i + 1] - cum[i]
+                t = (d - cum[i]) / seg if seg else 0
+                prof.append(zof((g[i][0] + (g[i + 1][0] - g[i][0]) * t, g[i][1] + (g[i + 1][1] - g[i][1]) * t)))
+            e['z'] = prof
+
     out = {
         'source': 'OpenStreetMap contributors (ODbL)',
         'origin': {'lat': lat0, 'lon': lon0, 'kx': kx, 'ky': ky},
         'boundary': [[round(x, 1), round(y, 1)] for x, y in poly],
-        'nodes': [{'id': short[n], 'x': round(pos[n][0], 1), 'y': round(pos[n][1], 1)} for n in node_ids],
+        'elevation': json.loads(ELEVATION.read_text(encoding='utf-8'))['source'] if height else None,
+        'nodes': [{'id': short[n], 'x': round(pos[n][0], 1), 'y': round(pos[n][1], 1),
+                   **({'z': zof(pos[n])} if height else {})} for n in node_ids],
         'edges': edges,
         'buildings': sorted(buildings, key=lambda b: b['name']),
         'stations': stations,
@@ -246,7 +291,8 @@ def main():
     kinds = defaultdict(int)
     for e in edges:
         kinds[e['kind']] += 1
-    print(f'nodes={len(node_ids)} edges={len(edges)} {dict(kinds)} buildings={len(buildings)} stations={len(stations)}')
+    print(f'nodes={len(node_ids)} edges={len(edges)} {dict(kinds)} buildings={len(buildings)} stations={len(stations)}'
+          + (' 높이 반영' if height else ' (높이 없음: tools/build_elevation.py 를 먼저 실행)'))
 
 
 if __name__ == '__main__':

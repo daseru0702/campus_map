@@ -12,7 +12,7 @@ export function createMap(el, handlers) {
   const map = L.map(el, { zoomControl: false, zoomSnap: 0.5 });
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · 높이: 국토지리정보원',
   }).addTo(map);
 
   const boundary = CAMPUS.boundary.map(([x, y]) => toLatLng(x, y));

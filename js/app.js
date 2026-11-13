@@ -202,7 +202,7 @@ function renderRouteInfo() {
     ? '<div class="hint">GPS 사용 중에는 내 위치에서 출발할 때만 안내를 시작할 수 있어요.</div>' : '';
   const from = state.rental || !state.start ? '내 위치' : state.start.name;
   box.innerHTML = `<div class="muted small">${from} → ${state.dest.name}</div>
-    <div class="route-total">${fmtTime(p.time)} <span class="muted small">${fmtDist(p.length)}</span></div>${legHtml}${hint}${gpsStartNote}`;
+    <div class="route-total">${fmtTime(p.time)} <span class="muted small">${fmtDist(p.length)}${p.climb >= 3 ? ` · 오르막 ${Math.round(p.climb)}m` : ''}</span></div>${legHtml}${hint}${gpsStartNote}`;
   go.disabled = !p.legs.length || (state.loc === 'gps' && !!state.start && !state.rental);
 }
 $('#routeInfo').addEventListener('click', (e) => {
@@ -282,7 +282,7 @@ $('#navReturn').addEventListener('click', finishBikeLeg);
 function stepNavDemo(dt) {
   const nav = state.nav;
   const l = state.plan.legs[nav.legIndex];
-  nav.travelled += SPEED[l.mode] * dt * TIME_SCALE;
+  nav.travelled += (l.time ? nav.length / l.time : SPEED[l.mode]) * dt * TIME_SCALE; // 경사를 반영한 이 구간 평균 속도
   const p = pointAlong(nav.points, nav.travelled);
   state.me.x = p.x;
   state.me.y = p.y;
@@ -346,7 +346,7 @@ function renderNavHud() {
   const l = p.legs[nav.legIndex];
   const left = Math.max(0, nav.length - nav.travelled);
   const rest = p.legs.slice(nav.legIndex + 1);
-  const sec = left / SPEED[l.mode] + rest.reduce((s, x) => s + x.time, 0);
+  const sec = (nav.length ? (l.time * left) / nav.length : 0) + rest.reduce((s, x) => s + x.time, 0);
   const meters = left + rest.reduce((s, x) => s + x.length, 0);
   const eta = new Date(Date.now() + sec * 1000).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
   $('#navHud .nav-leg').innerHTML = l.mode === 'bike'

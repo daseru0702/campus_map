@@ -13,6 +13,7 @@ const summarize = (legs) => ({
   legs: legs.filter((l) => l.edges.length),
   time: legs.reduce((s, l) => s + l.time, 0),
   length: legs.reduce((s, l) => s + l.length, 0),
+  climb: legs.reduce((s, l) => s + l.climb, 0),
 });
 
 export function planWalk(from, to) {

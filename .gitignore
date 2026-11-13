@@ -7,3 +7,6 @@ Thumbs.db
 .dev.vars
 .wrangler/
 node_modules/
+
+# 국토지리정보원 수치지도 원본 (용량이 커서 올리지 않음, tools/build_elevation.py 참고)
+data/ngii/

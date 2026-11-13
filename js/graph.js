@@ -1,25 +1,39 @@
-import { NODES, EDGES, SPEED, STEPS_PENALTY } from './data.js';
+import { NODES, EDGES, SPEED, STEPS_PENALTY, STAIR, walkSpeed, bikeSpeed } from './data.js';
 
 export const nodeById = Object.fromEntries(NODES.map((n) => [n.id, n]));
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const geomLength = (g) => g.reduce((s, p, i) => (i ? s + Math.hypot(p[0] - g[i - 1][0], p[1] - g[i - 1][1]) : 0), 0);
 
-// 인접 리스트: nodeId -> [{ to, edge }]
+const MAX_GRADE = 0.3; // 높이 자료 오차로 튀는 경사를 이 안으로 제한 (계단 제외)
+
+// 간선을 높이 단면(z, 같은 간격)을 따라 한 방향으로 지날 때의 { walk, bike 소요시간(초), climb 오르는 높이(m) }
+// 자전거는 보행로·계단을 쓸 수 없다. 계단은 평지보다 느린 걸음과 칸 수로 센 시간 중 긴 쪽.
+function traverse(e, z) {
+  const piece = e.length / (z.length - 1);
+  let walk = 0, bike = 0, climb = 0, stairs = 0;
+  for (let i = 1; i < z.length; i++) {
+    const dz = z[i] - z[i - 1];
+    const grade = piece ? Math.max(-MAX_GRADE, Math.min(MAX_GRADE, dz / piece)) : 0;
+    walk += piece / walkSpeed(grade);
+    bike += piece / bikeSpeed(grade);
+    climb += Math.max(0, dz);
+    stairs += (Math.abs(dz) / STAIR.rise) * (dz > 0 ? STAIR.up : STAIR.down);
+  }
+  if (e.kind === 'steps') walk = Math.max((e.length / SPEED.walk) * STEPS_PENALTY, stairs);
+  return { walk, bike: e.bike ? bike : Infinity, climb };
+}
+
+// 인접 리스트: nodeId -> [{ to, edge, dir }] — dir 0: a→b, 1: b→a
 const adj = {};
 export const edges = EDGES.map((src) => {
   const e = { ...src, length: geomLength(src.geom) };
-  (adj[e.a] ??= []).push({ to: e.b, edge: e });
-  (adj[e.b] ??= []).push({ to: e.a, edge: e });
+  const z = src.z ?? [0, 0]; // 높이 자료가 없으면 평지로 본다
+  e.cost = [traverse(e, z), traverse(e, [...z].reverse())];
+  (adj[e.a] ??= []).push({ to: e.b, edge: e, dir: 0 });
+  (adj[e.b] ??= []).push({ to: e.a, edge: e, dir: 1 });
   return e;
 });
-
-// 이동 수단별 간선 소요시간(초). 자전거는 보행로·계단을 쓸 수 없다.
-function edgeTime(e, mode) {
-  if (mode === 'bike' && !e.bike) return Infinity;
-  const penalty = mode === 'walk' && e.kind === 'steps' ? STEPS_PENALTY : 1;
-  return (e.length / SPEED[mode]) * penalty;
-}
 
 // 최소 힙
 class Heap {
@@ -56,12 +70,12 @@ class Heap {
 }
 
 // 다익스트라. from/to 는 노드 하나 또는 여러 개(건물 출입 지점들) — 그중 가장 빠른 조합을 고른다.
-// 반환: { path: [nodeId], edges: [edge], length(m), time(s) } 또는 null
+// 반환: { path: [nodeId], edges: [edge], length(m), time(s), climb(m) } 또는 null
 export function shortestPath(from, to, mode) {
   const sources = [].concat(from);
   const targets = new Set([].concat(to));
   const same = sources.find((n) => targets.has(n));
-  if (same) return { path: [same], edges: [], length: 0, time: 0 };
+  if (same) return { path: [same], edges: [], length: 0, time: 0, climb: 0 };
   const best = {};
   const prev = {};
   const done = new Set();
@@ -79,11 +93,11 @@ export function shortestPath(from, to, mode) {
       reached = u;
       break;
     }
-    for (const { to: v, edge } of adj[u] ?? []) {
-      const nt = t + edgeTime(edge, mode);
+    for (const { to: v, edge, dir } of adj[u] ?? []) {
+      const nt = t + edge.cost[dir][mode];
       if (nt < (best[v] ?? Infinity)) {
         best[v] = nt;
-        prev[v] = { u, edge };
+        prev[v] = { u, edge, dir };
         queue.push([nt, v]);
       }
     }
@@ -91,11 +105,13 @@ export function shortestPath(from, to, mode) {
   if (!reached) return null;
   const path = [reached];
   const used = [];
+  let climb = 0;
   for (let v = reached; prev[v]; v = prev[v].u) {
     used.unshift(prev[v].edge);
     path.unshift(prev[v].u);
+    climb += prev[v].edge.cost[prev[v].dir].climb;
   }
-  return { path, edges: used, length: used.reduce((s, e) => s + e.length, 0), time: best[reached] };
+  return { path, edges: used, length: used.reduce((s, e) => s + e.length, 0), time: best[reached], climb };
 }
 
 // 경로를 실제 길 모양(간선 geom)을 따라가는 좌표 목록으로 펼친다
