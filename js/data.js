@@ -23,7 +23,9 @@ export const INITIAL_BIKES = STATIONS.flatMap((st) =>
 
 export const RENTAL_LIMIT_SEC = 30 * 60; // 1회 대여 시간 30분
 
-export const SPEED = { walk: 1.3, bike: 4.2 }; // m/s, 평지 기준 (자전거는 캠퍼스 안 최고 속도로도 쓴다)
+// m/s, 평지 기준 (자전거는 캠퍼스 안 최고 속도로도 쓴다)
+// 걷기: 2026-11-13 실측 — 정문 → ACE교육관(대운동장 서쪽 도로, 약 810m, 오르막 14m) 약 9분에 맞춤
+export const SPEED = { walk: 1.55, bike: 4.2 };
 // 계단은 도보로도 평지보다 느리다 (자전거는 통행 불가)
 export const STEPS_PENALTY = 1.6;
 // 계단 오르내리기: 한 칸 높이와 칸당 걸리는 시간(초)

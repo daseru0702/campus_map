@@ -49,6 +49,14 @@ EXIT_RADIUS_M = 20
 EXIT_SPACING_M = 25    # 보충 후보끼리 이보다 가까우면 하나만 남긴다
 MAX_EXITS = 4          # 보충할 때의 최대 개수
 
+# 되도록 지나가지 않을 구역 (위경도 다각형). 길이의 절반 이상이 안에 있는 간선에 avoid 를 붙인다
+#  - 대운동장: 체대 수업 전 몸풀기·축제 준비로 붐빈다. 북쪽 길(미래혁신관 방향)과 서쪽 도로는 제외
+AVOID_AREAS = {
+    '대운동장': [(37.211645, 126.977651), (37.211645, 126.978751), (37.211415, 126.978941), (37.210207, 126.978941),
+                 (37.209935, 126.978372), (37.209935, 126.977765), (37.210509, 126.977537)],
+}
+AVOID_SHARE = 0.5
+
 # 간선 높이 단면: 길을 이 길이 안팎의 같은 구간으로 나눠 구간 끝마다 높이를 적는다
 PROFILE_STEP_M = 15
 
@@ -245,6 +253,19 @@ def main():
             edges.append({'a': chain[0], 'b': chain[-1], 'bike': bike, 'kind': kind,
                           'geom': [[round(pos[c][0], 1), round(pos[c][1], 1)] for c in chain]})
 
+    areas = {name: [proj(la, lo) for la, lo in ring] for name, ring in AVOID_AREAS.items()}
+    for e in edges:
+        g = e['geom']
+        for name, ring in areas.items():
+            total = inner = 0
+            for p, q in zip(g, g[1:]):  # 구간마다 10곳을 찍어 구역 안에 든 길이를 잰다
+                seg = math.hypot(q[0] - p[0], q[1] - p[1])
+                total += seg
+                inner += seg / 10 * sum(inside((p[0] + (q[0] - p[0]) * (k + .5) / 10, p[1] + (q[1] - p[1]) * (k + .5) / 10), ring)
+                                        for k in range(10))
+            if total and inner / total >= AVOID_SHARE:
+                e['avoid'] = name
+
     node_ids = sorted({e['a'] for e in edges} | {e['b'] for e in edges})
     short = {nid: f'n{i}' for i, nid in enumerate(node_ids)}
     for e in edges:
@@ -291,6 +312,7 @@ def main():
     kinds = defaultdict(int)
     for e in edges:
         kinds[e['kind']] += 1
+        kinds['avoid'] += 'avoid' in e
     print(f'nodes={len(node_ids)} edges={len(edges)} {dict(kinds)} buildings={len(buildings)} stations={len(stations)}'
           + (' 높이 반영' if height else ' (높이 없음: tools/build_elevation.py 를 먼저 실행)'))
 

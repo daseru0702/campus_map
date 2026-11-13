@@ -5,6 +5,8 @@ export const nodeById = Object.fromEntries(NODES.map((n) => [n.id, n]));
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const geomLength = (g) => g.reduce((s, p, i) => (i ? s + Math.hypot(p[0] - g[i - 1][0], p[1] - g[i - 1][1]) : 0), 0);
 
+// 피해 갈 구역(대운동장 등)의 길은 경로를 고를 때만 이만큼 오래 걸리는 것으로 친다 (표시 시간은 실제 그대로)
+const AVOID_PENALTY = 5;
 const MAX_GRADE = 0.3; // 높이 자료 오차로 튀는 경사를 이 안으로 제한 (계단 제외)
 
 // 간선을 높이 단면(z, 같은 간격)을 따라 한 방향으로 지날 때의 { walk, bike 소요시간(초), climb 오르는 높이(m) }
@@ -94,7 +96,7 @@ export function shortestPath(from, to, mode) {
       break;
     }
     for (const { to: v, edge, dir } of adj[u] ?? []) {
-      const nt = t + edge.cost[dir][mode];
+      const nt = t + edge.cost[dir][mode] * (edge.avoid ? AVOID_PENALTY : 1);
       if (nt < (best[v] ?? Infinity)) {
         best[v] = nt;
         prev[v] = { u, edge, dir };
@@ -105,13 +107,15 @@ export function shortestPath(from, to, mode) {
   if (!reached) return null;
   const path = [reached];
   const used = [];
-  let climb = 0;
+  let time = 0, climb = 0;
   for (let v = reached; prev[v]; v = prev[v].u) {
-    used.unshift(prev[v].edge);
-    path.unshift(prev[v].u);
-    climb += prev[v].edge.cost[prev[v].dir].climb;
+    const { u, edge, dir } = prev[v];
+    used.unshift(edge);
+    path.unshift(u);
+    time += edge.cost[dir][mode];
+    climb += edge.cost[dir].climb;
   }
-  return { path, edges: used, length: used.reduce((s, e) => s + e.length, 0), time: best[reached], climb };
+  return { path, edges: used, length: used.reduce((s, e) => s + e.length, 0), time, climb };
 }
 
 // 경로를 실제 길 모양(간선 geom)을 따라가는 좌표 목록으로 펼친다
