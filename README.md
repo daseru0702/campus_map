@@ -42,12 +42,17 @@ GPS와 카메라는 브라우저 보안 정책상 **HTTPS 또는 localhost** 에
 
 ## 배포
 
-| 주소 | 용도 | 버스 중계 |
-| --- | --- | --- |
-| https://campus-map.daseru.workers.dev | 공개용 (Cloudflare Workers) | 같은 주소의 `/api/bus/*` (`relay/worker.js`) |
-| https://daseru0702.github.io/campus_map/ | 베타 테스트용 (GitHub Pages) | 공개용 주소의 중계를 빌려 씀 (`js/bus.js`의 `RELAY_URL`) |
+| 주소 | 브랜치 | 용도 | 버스 중계 |
+| --- | --- | --- | --- |
+| https://campus-map.daseru.workers.dev | `main` | 공개용 (Cloudflare Workers) | 같은 주소의 `/api/bus/*` (`relay/worker.js`) |
+| https://daseru0702.github.io/campus_map/ | `beta` | 베타 테스트용 (GitHub Pages, 제목 옆 BETA 표시) | 공개용 주소의 중계를 빌려 씀 (`js/bus.js`의 `RELAY_URL`) |
 
-둘 다 GitHub 저장소와 연결되어 있어 **`main`에 push하면 자동으로 다시 배포**된다.
+둘 다 GitHub 저장소와 연결되어 있어 push하면 자동으로 다시 배포된다.
+
+1. 작업은 `beta`에 push → 베타 사이트에서 확인
+2. 공개할 때 `beta`를 `main`에 합쳐 push → 공개 사이트에 반영
+
+버스 중계(`relay/worker.js`)는 공개용 주소에서만 돌아가므로, 이 파일을 바꾼 경우는 `main`에 올려야 확인할 수 있다.
 
 ### Cloudflare (공개용)
 

@@ -8,6 +8,8 @@
   <script>
     // 고른 테마(밝게/어둡게)를 화면이 그려지기 전에 적용 (깜빡임 방지). 고른 적 없으면 기기 설정을 따른다
     try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+    // GitHub Pages 는 베타 사이트: 제목 옆에 BETA 표시
+    if (location.hostname.endsWith('github.io')) document.documentElement.dataset.beta = '';
   </script>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
