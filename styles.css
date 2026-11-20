@@ -241,6 +241,12 @@ select, .btn, .chip {
 .stn.hl { outline: 3px solid var(--primary); outline-offset: 2px; }
 .busstop { width: 18px; height: 18px; border-radius: 5px; background: #2b8a3e; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); cursor: pointer; }
 .busstop.hl { outline: 3px solid var(--primary); outline-offset: 2px; }
+.shuttlestop { width: 22px; height: 22px; border-radius: 6px; background: var(--brand-yellow); color: #1a1a1a; border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.45); font: 700 12px/18px sans-serif; text-align: center; cursor: pointer; }
+.shuttlestop.hl { outline: 3px solid var(--primary); outline-offset: 2px; }
+.shuttle-line { stroke: var(--brand-yellow); stroke-width: 5; stroke-dasharray: 2 9; stroke-linecap: round; fill: none; }
+.shuttle-times { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 6px 0 8px; }
+.shuttle-times .past { color: var(--muted); text-decoration: line-through; }
 .r-casing { stroke: #fff; stroke-width: 10; fill: none; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
 .r-bike { stroke: var(--bike); stroke-width: 6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .r-walk { stroke: var(--walk); stroke-width: 6; fill: none; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }

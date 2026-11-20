@@ -83,12 +83,17 @@
         <div class="tabs">
           <button class="tab active" data-tab="stations">대여소</button>
           <button class="tab" data-tab="bus">버스</button>
+          <button class="tab" data-tab="shuttle">셔틀</button>
           <button class="tab" data-tab="sim" hidden>시뮬레이션</button>
         </div>
         <div id="tab-stations" class="tab-body"><ul id="stationList" class="list"></ul></div>
         <div id="tab-bus" class="tab-body" hidden>
           <div id="busInfo" class="small muted"></div>
           <ul id="busList" class="list"></ul>
+        </div>
+        <div id="tab-shuttle" class="tab-body" hidden>
+          <div id="shuttleInfo" class="small muted"></div>
+          <ul id="shuttleList" class="list"></ul>
         </div>
         <div id="tab-sim" class="tab-body" hidden>
           <div class="muted small">개발용 · 더미 자전거 전체 현황 · GPS 수신 <b id="gpsCount">0</b>건</div>

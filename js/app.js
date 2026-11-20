@@ -1,5 +1,5 @@
 import { BUILDINGS, SPEED, RENTAL_LIMIT_SEC, fromLatLng, toLatLng } from './data.js';
-import { nodeById, shortestPath, routePoints, pointAlong, totalLength, nearestNode } from './graph.js';
+import { nodeById, edges, shortestPath, routePoints, pointAlong, totalLength, nearestNode } from './graph.js';
 import {
   bikes, bikeById, stations, stationById, dockedAt, hasFreeDock,
   subscribe, rent, returnBike, moveMyBike, start as startSim, TIME_SCALE,
@@ -9,6 +9,7 @@ import { createMap } from './mapview.js';
 import { watchGps, GPS_ERROR_TEXT } from './gps.js';
 import { openScanner } from './qr.js';
 import { fetchStops, fetchArrivals, fmtBus } from './bus.js';
+import { STOPS as SHUTTLE_STOPS, LOOP_MIN, runsOn, timesAt, upcoming } from './shuttle.js';
 
 const $ = (s) => document.querySelector(s);
 // 내용이 바뀌었을 때만 다시 그린다 (주기적으로 갱신하는 목록에서 클릭이 끊기지 않도록)
@@ -642,8 +643,8 @@ function selectBusStop(id, fromList = true) {
   renderBus();
 }
 
-// 정류장까지 도보 시간: 가장 가까운 길 지점까지 길찾기 + 그 지점에서 정류장까지 직선
-function walkToBusStop(s) {
+// 정류장(버스·셔틀)까지 도보 시간: 가장 가까운 길 지점까지 길찾기 + 그 지점에서 정류장까지 직선
+function walkToStop(s) {
   const p = fromLatLng(s.lat, s.lon);
   const n = nearestNode(p.x, p.y);
   const r = shortestPath(meNode(), n.id, 'walk');
@@ -679,7 +680,7 @@ function renderBus() {
   if (bus.loading) return setHTML($('#busList'), '<li class="muted">정류장을 불러오는 중…</li>');
   if (!bus.stops) return setHTML($('#busList'), '');
   if (!bus.stops.length) return setHTML($('#busList'), '<li class="muted">주변 정류장을 찾지 못했습니다.</li>');
-  const rows = bus.stops.map((s) => ({ s, w: walkToBusStop(s) })).sort((a, b) => a.w.time - b.w.time);
+  const rows = bus.stops.map((s) => ({ s, w: walkToStop(s) })).sort((a, b) => a.w.time - b.w.time);
   setHTML($('#busList'), rows.map(({ s, w }) => {
     const open = bus.selected === s.id;
     return `<li class="bus-stop${open ? ' open' : ''}" data-bus-stop="${s.id}">
@@ -693,7 +694,7 @@ $('#busList').addEventListener('click', (e) => {
   const routeId = e.target.closest('[data-bus-route]')?.dataset.busRoute;
   if (routeId) {
     const s = busStopById(routeId);
-    return setDest({ node: walkToBusStop(s).node, name: `${s.name} 정류장` }, true);
+    return setDest({ node: walkToStop(s).node, name: `${s.name} 정류장` }, true);
   }
   if (e.target.closest('.arr')) return;
   const id = e.target.closest('[data-bus-stop]')?.dataset.busStop;
@@ -706,15 +707,83 @@ function refreshBus() {
   if (bus.selected && a && Date.now() - a.at > ARRIVAL_REFRESH_MS) loadArrivals(bus.selected);
 }
 
+// ---------------- 교내 셔틀 (시간표, js/shuttle.js) ----------------
+const shuttle = { selected: null, drawn: false };
+const shuttleStopById = (id) => SHUTTLE_STOPS.find((s) => s.id === id);
+const roadNodes = [...new Set(edges.filter((e) => e.bike).flatMap((e) => [e.a, e.b]))].map((id) => nodeById[id]);
+const nearestRoadNode = (p) => roadNodes.reduce((b, n) => (dist(n, p) < dist(b, p) ? n : b));
+
+// 정류장과 정류장 사이를 차도로 이어 셔틀이 도는 길을 그린다 (실제 운행 경로와 조금 다를 수 있음)
+function drawShuttle() {
+  if (shuttle.drawn) return;
+  shuttle.drawn = true;
+  const nodes = SHUTTLE_STOPS.map((s) => nearestRoadNode(fromLatLng(s.lat, s.lon)).id);
+  const line = nodes.flatMap((n, i) => {
+    const r = shortestPath(n, nodes[(i + 1) % nodes.length], 'bike');
+    return r ? routePoints(r).map((p) => toLatLng(p.x, p.y)) : [];
+  });
+  mv.setShuttle(SHUTTLE_STOPS, line, (s) => selectShuttleStop(s.id, false));
+}
+
+function selectShuttleStop(id, fromList = true) {
+  shuttle.selected = fromList && shuttle.selected === id ? null : id;
+  mv.highlightShuttleStop(shuttle.selected);
+  const s = shuttleStopById(id);
+  if (shuttle.selected && fromList) mv.focus(fromLatLng(s.lat, s.lon), 17.5);
+  renderShuttle();
+}
+
+function renderShuttle() {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  let info = `<b>교내 셔틀</b> · 인문대 앞 출발, 한 바퀴 약 ${LOOP_MIN}분 · 학기 중 평일만 운행`;
+  if (!runsOn(now)) info += '<div class="hint warn">오늘은 운행하지 않아요.</div>';
+  else if (SHUTTLE_STOPS.every((s) => !upcoming(s, now, 1).length)) info += '<div class="hint warn">오늘 운행이 끝났어요.</div>';
+  setHTML($('#shuttleInfo'), info);
+  setHTML($('#shuttleList'), SHUTTLE_STOPS.map((s, i) => {
+    const w = walkToStop(s);
+    const next = upcoming(s, now, 2);
+    const nextText = next.length
+      ? next.map((t, k) => (k ? `<span class="muted small">${t.at}</span>` : `<span class="soon">${t.at}</span> <span class="muted small">${t.inMin ? `${t.inMin}분 후` : '곧 도착'}</span>`)).join(' · ')
+      : '<span class="muted small">남은 운행 없음</span>';
+    const open = shuttle.selected === s.id;
+    // 지금 걸어가서 탈 수 있는 첫 셔틀
+    const catchable = upcoming(s, now, timesAt(s).length).find((t) => t.inMin * 60 >= w.time);
+    return `<li class="bus-stop${open ? ' open' : ''}" data-shuttle-stop="${s.id}">
+      <div class="bus-stop-head"><span><b>${i + 1}. ${s.name}</b><br>${nextText}</span>
+        <span class="muted small">도보 ${fmtTime(w.time)}</span></div>
+      ${open ? `<div class="arr">
+        <div class="shuttle-times">${timesAt(s).map((t) => `<span class="${runsOn(now) && t.min < nowMin ? 'past' : ''}">${t.at}</span>`).join('')}</div>
+        ${catchable ? `<div class="small">지금 걸어가면 <b>${catchable.at}</b> 셔틀을 탈 수 있어요.</div>` : ''}
+        <button class="btn small" data-shuttle-route="${s.id}" style="margin-top:6px">정류장까지 길찾기</button></div>` : ''}</li>`;
+  }).join(''));
+}
+$('#shuttleList').addEventListener('click', (e) => {
+  const routeId = e.target.closest('[data-shuttle-route]')?.dataset.shuttleRoute;
+  if (routeId) {
+    const s = shuttleStopById(routeId);
+    return setDest({ node: walkToStop(s).node, name: `셔틀 ${s.name} 정류장` }, true);
+  }
+  if (e.target.closest('.arr')) return;
+  const id = e.target.closest('[data-shuttle-stop]')?.dataset.shuttleStop;
+  if (id) selectShuttleStop(id);
+});
+
 // ---------------- 탭 ----------------
 if (DEBUG) $('.tab[data-tab="sim"]').hidden = false;
 document.querySelectorAll('.tab').forEach((t) =>
   t.addEventListener('click', () => {
     state.tab = t.dataset.tab;
     document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
-    for (const name of ['stations', 'bus', 'sim']) $(`#tab-${name}`).hidden = name !== state.tab;
+    for (const name of ['stations', 'bus', 'shuttle', 'sim']) $(`#tab-${name}`).hidden = name !== state.tab;
     mv.showBus(state.tab === 'bus');
+    mv.showShuttle(state.tab === 'shuttle');
     if (state.tab === 'bus') loadBusStops();
+    if (state.tab === 'shuttle') {
+      drawShuttle();
+      renderShuttle();
+      mv.fitWith(SHUTTLE_STOPS);
+    }
     if (state.tab === 'stations') renderStationList();
   }));
 
@@ -800,6 +869,7 @@ function frame(now) {
     slowAcc = 0;
     if (state.tab === 'stations') renderStationList();
     if (state.tab === 'bus') refreshBus();
+    if (state.tab === 'shuttle') renderShuttle();
     if (state.tab === 'sim') renderBikeTable();
     if (state.rental) renderRentCard();
   }

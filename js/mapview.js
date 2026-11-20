@@ -66,6 +66,7 @@ export function createMap(el, handlers) {
 
   const routeLayer = L.layerGroup().addTo(map);
   const busLayer = L.layerGroup();
+  const shuttleLayer = L.layerGroup();
 
   // 건물(목적지)
   for (const b of BUILDINGS) {
@@ -95,6 +96,8 @@ export function createMap(el, handlers) {
 
   // 주변 버스 정류장 (버스 탭을 열었을 때만 표시)
   const busStopMarkers = {};
+  // 교내 셔틀 정류장과 도는 길 (셔틀 탭을 열었을 때만 표시)
+  const shuttleMarkers = {};
 
   // 내 위치
   const meAcc = L.circle(ll({ x: 0, y: 0 }), { radius: 0, className: 'me-acc', interactive: false }).addTo(map);
@@ -199,6 +202,31 @@ export function createMap(el, handlers) {
             onClick(s);
           })
           .addTo(busLayer);
+      }
+    },
+    showShuttle(on) {
+      if (on) shuttleLayer.addTo(map);
+      else shuttleLayer.remove();
+    },
+    setShuttle(stops, line, onClick) {
+      shuttleLayer.clearLayers();
+      L.polyline(line, { className: 'shuttle-line', interactive: false }).addTo(shuttleLayer);
+      stops.forEach((s, i) => {
+        shuttleMarkers[s.id] = L.marker([s.lat, s.lon], {
+          icon: L.divIcon({ className: 'stn-wrap', html: `<div class="shuttlestop">${i + 1}</div>`, iconSize: [22, 22] }),
+          zIndexOffset: 700,
+        })
+          .bindTooltip(s.name, { direction: 'top', offset: [0, -12] })
+          .on('click', (ev) => {
+            L.DomEvent.stopPropagation(ev);
+            onClick(s);
+          })
+          .addTo(shuttleLayer);
+      });
+    },
+    highlightShuttleStop(id) {
+      for (const [sid, m] of Object.entries(shuttleMarkers)) {
+        m.getElement()?.querySelector('.shuttlestop')?.classList.toggle('hl', sid === id);
       }
     },
     highlightBusStop(id) {
